@@ -2,30 +2,46 @@ Boolbery daemon OpenCL configuration
 ------------------------------------
 
 OpenCL miner supports ordinary mining parameters:
+
 --start-mining=<address>
+
 --mining-threads=<n>, n - number of GPUs to use
 
 Run the daemon once to create miner_conf.json in the data directory.
+
 Keys to tune the miner: 
   "platform_index" - use OpenCL platform (if you have manym, default 0)
+  
   "device_index" - use OpenCL devices from (if you have many, default from 0)
+  
   "difficulty" - virtual share difficulty for statistics
+  
   "donation_percent_opencl" - OpenCL developer donation, default value - 2%
+  
   "kernel" - OpenCL kernel file name
+  
   "kernel_type" - kernel type: 0 - all-in-one, 1 - multiple step version (wild_keccak-multi.cl)
+  
   "thread_delay" - delay in ms between thread startups
+  
   "work_size" - OpenCL work size (smaller values make the computer more responsive)
 
 Tested on AMD GPUs only!
 
 Expected performance:
+
 6870, R270x - 500-600 khs
+
 6970, R280X - 900-1000 khs
 
 OpenCL code is available under the terms of the GNU Public License version 3. 
+
 Author Mikhail Kuperman (mbk.git@gmail.com)
+
 BBR donation address: 1EmWGnwhydr3S2vRWQbbefh1hgDKgMjdMGe43ZgdPhdARhNBRkUMuD4YzLA2nyYG8tg2HKCCBg4aDamJKypRQWW1Ca2kSV8
+
 BTC donation address: 1Lns6UjL3sw77DJ5z1EKJZy6SnqriqvVGK
+
 
 Building
 --------
@@ -33,6 +49,7 @@ Building
 ### Unix and MacOS X
 
 OpenCL build wasn't tested although it should work if you get OpenCL header files, libraries:
+
 http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/
 
 Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, and Boost 1.53(but don't use 1.54) or later. You may download them from:
@@ -68,11 +85,15 @@ http://www.cmake.org/
 http://www.boost.org/
 
 OpenCL header files, libraries
+
 http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/
 
 To build, change to the 'build' directory, edit paths to Boost in cmake-vs2012.bat and run it.
+
 Open the generated boolberry.sln in VS2012 and build the targets you need in the prog group.
+
 You'll find executables in build/src/Release directory.
+
 Copy *.cl kernels from src/cl to executable's directory.
 
 Good luck!
