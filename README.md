@@ -1,4 +1,4 @@
-Boolbery daemon OpenCL configuration
+Boolberry daemon OpenCL configuration
 ------------------------------------
 
 OpenCL miner supports ordinary mining parameters:
