@@ -79,11 +79,11 @@ namespace epee
       if (m_run)
       {
         m_run.store(false, std::memory_order_relaxed);
-
+/*
 #if defined(WIN32)
         ::CloseHandle(::GetStdHandle(STD_INPUT_HANDLE));
 #endif
-
+*/
         m_request_cv.notify_one();
         m_reader_thread.join();
       }
