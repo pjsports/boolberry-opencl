@@ -9,6 +9,10 @@
 #include "currency_core/difficulty.h"
 #include <boost/atomic.hpp>
 #include <atomic>
+
+#include <CL\opencl.h>
+#include "currency_core\OCL_Device.h"
+
 namespace mining
 {
   class  simpleminer
@@ -33,23 +37,9 @@ namespace mining
       height_info_native prev_hi;
     };
 
-
+    static bool text_job_details_to_native_job_details(const job_details& job, job_details_native& native_details);
     static bool text_height_info_to_native_height_info(const height_info& job, height_info_native& hi_native);
     static bool native_height_info_to_text_height_info(height_info& job, const height_info_native& hi_native);
-
-    template<class job_details_t>
-    bool text_job_details_to_native_job_details(const job_details_t& job, simpleminer::job_details_native& native_details)
-    {
-      bool r = epee::string_tools::parse_hexstr_to_binbuff(job.blob, native_details.blob);
-      CHECK_AND_ASSERT_MES(r, false, "wrong buffer sent from pool server");
-      r = epee::string_tools::get_xtype_from_string(native_details.difficulty, job.difficulty);
-      CHECK_AND_ASSERT_MES(r, false, "wrong buffer sent from pool server");
-      native_details.job_id = job.job_id;
-
-      return text_height_info_to_native_height_info(job.prev_hi, native_details.prev_hi);
-    }
-
-
 
     bool get_job();
     bool get_whole_scratchpad();
@@ -79,5 +69,10 @@ namespace mining
     std::string m_login;
     std::string m_pass;
     epee::net_utils::http::http_simple_client m_http_client;
+
+    uint32_t m_platform;
+    uint32_t m_device;
+
+	OCL_Device* pOCL_Device;
   };
 }
