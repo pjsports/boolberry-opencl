@@ -3,9 +3,9 @@ Boolberry daemon OpenCL configuration
 
 OpenCL miner supports ordinary mining parameters:
 
---start-mining=<address>
+--start-mining=[address]
 
---mining-threads=<n>, n - number of GPUs to use
+--mining-threads=[n], n - number of GPUs to use
 
 Run the daemon once to create miner_conf.json in the data directory.
 
@@ -79,10 +79,15 @@ Building with Clang: it may be possible to use Clang instead of GCC, but this ma
 
 ### Windows
 
-Dependencies: MSVC 2012, CMake 2.8.6 or later, and Boost 1.55. You may download them from:
-http://www.microsoft.com/
-http://www.cmake.org/
-http://www.boost.org/
+Dependencies: MSVC 2012, CMake 2.8.6 or later, and Boost 1.55. 
+
+You may download them from:
+
+http://www.microsoft.com/en-US/download/details.aspx?id=34673
+
+http://www.cmake.org/files/v3.0/cmake-3.0.0-win32-x86.exe
+
+http://sourceforge.net/projects/boost/files/boost-binaries/1.55.0-build2/boost_1_55_0-msvc-11.0-64.exe/download
 
 OpenCL header files, libraries
 
