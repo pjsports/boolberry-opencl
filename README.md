@@ -26,13 +26,15 @@ Keys to tune the miner:
   
   "work_size" - OpenCL work size (smaller values make the computer more responsive)
 
-Tested on AMD GPUs only!
-
-Expected performance:
+Performance:
 
 6870, R270x - 500-600 khs
 
 6970, R280X - 900-1000 khs
+
+GTX 560 Ti - 335 khs
+
+AWS g2.2 (GTX 660 Ti) - 365 khs
 
 OpenCL code is available under the terms of the GNU Public License version 3. 
 
