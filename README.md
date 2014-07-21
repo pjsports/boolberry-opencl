@@ -87,7 +87,7 @@ OpenCL SDK (you can install CUDA too):
 http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/
 
 To build, edit paths to Boost in `cmake-vs2012.bat` and run it.  
-Open the generated `boolberry.sln` in VS2012 and build the targets you need in the prog group.  
+Open the generated `build/boolberry.sln` in VS2012, change the solution configuration to `Release` and build the targets you need in the prog group.  
 You'll find executables in `build/src/Release` directory.  
 Copy `*.cl` kernels from `src/cl` to executable's directory.
 
