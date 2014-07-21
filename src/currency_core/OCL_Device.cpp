@@ -1,4 +1,4 @@
-#include <CL\opencl.h>
+#include <CL/cl.h>
 #include "OCL_Device.h"
 
 #define ENABLE_RELEASE_LOGGING

@@ -164,7 +164,7 @@ namespace mining
 			uint64_t* output = new uint64_t[OUTPUT_SIZE];
 			memset(output, 0, OUTPUT_SIZE * sizeof(uint64_t));
 			pOCL_Device->CopyBufferToDevice(output, 1, OUTPUT_SIZE * sizeof(uint64_t));	
-			pOCL_Device->run(start_nonce+nonce_offset, _ULLONG_MAX / m_job.difficulty);
+			pOCL_Device->run(start_nonce+nonce_offset, ULLONG_MAX / m_job.difficulty);
 			pOCL_Device->CopyBufferToHost(output, 1, OUTPUT_SIZE * sizeof(uint64_t));
 			for (uint64_t i = 0; i < output[OUTPUT_SIZE-1]; i++) {
 				uint64_t nounce = output[i];

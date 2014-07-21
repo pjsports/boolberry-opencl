@@ -1,4 +1,4 @@
-#include <CL\opencl.h>
+#include <CL/cl.h>
 #include <map>
 
 #define OCL_DEVICE_OUTPUT_SIZE 16

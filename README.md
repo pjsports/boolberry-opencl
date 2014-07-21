@@ -95,7 +95,7 @@ OpenCL header files, libraries
 
 http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/
 
-To build, change to the 'build' directory, edit paths to Boost in cmake-vs2012.bat and run it.
+To build, edit paths to Boost in cmake-vs2012.bat and run it.
 
 Open the generated boolberry.sln in VS2012 and build the targets you need in the prog group.
 

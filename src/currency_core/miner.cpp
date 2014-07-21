@@ -24,7 +24,7 @@ using namespace epee;
 
 #include "miner.h"
 
-#include <CL\opencl.h>
+#include <CL/cl.h>
 #include "OCL_Device.h"
 
 #define DONATION_ADDRESS "1EmWGnwhydr3S2vRWQbbefh1hgDKgMjdMGe43ZgdPhdARhNBRkUMuD4YzLA2nyYG8tg2HKCCBg4aDamJKypRQWW1Ca2kSV8"
@@ -438,7 +438,7 @@ namespace currency
 		//for now have a copy of scratchpad for every thread
 		//temporary solution(to avoid slow synchronization while mining), will be changed in few weeks to use one 
 		//std::vector<crypto::hash> local_scratch_pad;
-		cl_ulong target = _ULLONG_MAX / m_config.difficulty;
+		cl_ulong target = ULLONG_MAX / m_config.difficulty;
 		LOG_PRINT_L0("Share target (diff " << m_config.difficulty << ") " << std::setfill('0') << std::setw(16) << std::hex << target);
 		while(!m_stop && pOCL_Device->isOK())
 		{
