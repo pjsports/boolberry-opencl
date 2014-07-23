@@ -24,7 +24,6 @@ using namespace epee;
 
 #include "miner.h"
 
-#include <CL/cl.h>
 #include "OCL_Device.h"
 
 #define DONATION_ADDRESS "1EmWGnwhydr3S2vRWQbbefh1hgDKgMjdMGe43ZgdPhdARhNBRkUMuD4YzLA2nyYG8tg2HKCCBg4aDamJKypRQWW1Ca2kSV8"

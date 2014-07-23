@@ -10,7 +10,6 @@
 #include <boost/atomic.hpp>
 #include <atomic>
 
-#include <CL/cl.h>
 #include "currency_core/OCL_Device.h"
 
 namespace mining

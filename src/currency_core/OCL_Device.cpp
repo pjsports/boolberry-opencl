@@ -1,4 +1,3 @@
-#include <CL/cl.h>
 #include "OCL_Device.h"
 
 #define ENABLE_RELEASE_LOGGING
@@ -378,20 +377,6 @@ void OCL_Device::CHECK_OPENCL_ERROR(cl_int err)
 			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_BUILD_PROGRAM_FAILURE"); break;
 		case CL_MAP_FAILURE:					
 			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_MAP_FAILURE"); break;
-		case CL_MISALIGNED_SUB_BUFFER_OFFSET:	
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_MISALIGNED_SUB_BUFFER_OFFSET"); break;
-		case CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST:
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST"); break;
-		case CL_COMPILE_PROGRAM_FAILURE: 
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_COMPILE_PROGRAM_FAILURE"); break;
-		case CL_LINKER_NOT_AVAILABLE: 
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_LINKER_NOT_AVAILABLE"); break;
-		case CL_LINK_PROGRAM_FAILURE: 
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_LINK_PROGRAM_FAILURE"); break;
-		case CL_DEVICE_PARTITION_FAILED: 
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_DEVICE_PARTITION_FAILED"); break;
-		case CL_KERNEL_ARG_INFO_NOT_AVAILABLE: 
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_KERNEL_ARG_INFO_NOT_AVAILABLE"); break;
 
 		case CL_INVALID_VALUE: 
 			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_INVALID_VALUE"); break;
@@ -461,16 +446,6 @@ void OCL_Device::CHECK_OPENCL_ERROR(cl_int err)
 			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_INVALID_MIP_LEVEL"); break;
 		case CL_INVALID_GLOBAL_WORK_SIZE: 
 			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_INVALID_GLOBAL_WORK_SIZE"); break;
-		case CL_INVALID_PROPERTY:
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_INVALID_PROPERTY"); break;
-		case CL_INVALID_IMAGE_DESCRIPTOR:
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_INVALID_IMAGE_DESCRIPTOR"); break;
-		case CL_INVALID_COMPILER_OPTIONS:
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_INVALID_COMPILER_OPTIONS"); break;
-		case CL_INVALID_LINKER_OPTIONS: 
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_INVALID_LINKER_OPTIONS"); break;
-		case CL_INVALID_DEVICE_PARTITION_COUNT: 
-			LOG_PRINT_RED_L0("[OCL " << m_platform_num << "/" << m_device_num << "] error:  CL_INVALID_DEVICE_PARTITION_COUNT"); break;
 		}
 		ok = false;
 	}
