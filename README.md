@@ -29,11 +29,13 @@ GPU specific parameters are:
 
 Start one instance per GPU and increment device index for every new instance. You will not get performance close to solo miner due to network delays.
 
-**Performance (solo):**  
+**Performance (solo):**   
+6990              1160 khs  
 R280x@1100/1500   970 khs  
 7950@1100/1500    920 khs  
 R270x@1100/1500   670 khs  
 7870@1100/1350    550 khs  
+6950              540 khs  
 GTX 750 Ti         450 khs  
 AWS g2.2           365 khs  
 GTX 560 Ti         335 khs
@@ -48,16 +50,24 @@ Building
 
 ### Unix and MacOS X
 
-Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, and Boost 1.53(but don't use 1.54) or later. You may download them from:
+Dependencies: GCC 4.7.3 or later, CMake 2.8.6 or later, Boost 1.53(but don't use 1.54) or later. You may download them from:
 http://gcc.gnu.org/  
 http://www.cmake.org/  
-http://www.boost.org/  
-Alternatively, it may be possible to install them using a package manager.
+http://www.boost.org/
 
-OpenCL SDK (you can install CUDA too):  
-http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/
+Alternatively, it may be possible to install them using a package manager.  
+For Ubuntu (Debian):  
+`sudo apt-get install cmake libboost1.55 g++`
 
-Set AMDAPPSDKROOT or CUDA_PATH if they have not been set already depending on SDK you installed.
+OpenCL SDK:  
+http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/  
+or  
+https://developer.nvidia.com/cuda-downloads
+
+Set AMDAPPSDKROOT or CUDA_PATH if they have not been set already depending on SDK you installed:  
+`export AMDAPPSDKROOT=/opt/AMDAPP`  
+or  
+`export CUDA_PATH=/usr/local/cuda`
 
 More detailed instructions for OS X (assume you’re using MacPorts (they’re, however, pretty self-explanatory and homebrew users shouldn't have troubles following it too):
 
