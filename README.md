@@ -30,10 +30,13 @@ GPU specific parameters are:
 Start one instance per GPU and increment device index for every new instance. You will not get performance close to solo miner due to network delays.
 
 **Performance (solo):**  
-6870, R270x - 500-600 khs  
-6970, R280X - 900-1000 khs  
-GTX 560 Ti - 335 khs  
-AWS g2.2 (GTX 660 Ti) - 365 khs
+R280x@1100/1500   970 khs  
+7950@1100/1500    920 khs  
+R270x@1100/1500   670 khs  
+7870@1100/1350    550 khs  
+GTX 750 Ti         450 khs  
+AWS g2.2           365 khs  
+GTX 560 Ti         335 khs
 
 OpenCL code is available under the terms of the GNU Public License version 3.  
 Author Mikhail Kuperman (mbk.git@gmail.com)  
