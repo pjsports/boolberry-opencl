@@ -365,6 +365,7 @@ bool daemon_backend::open_wallet(const std::string& path, const std::string& pas
     {
       m_wallet->store();
       m_wallet.reset(new tools::wallet2());
+      m_wallet->callback(this);
     }
     
     m_wallet->load(path, password);
@@ -469,8 +470,7 @@ bool daemon_backend::get_transfer_address(const std::string& adr_str, currency::
     if (alias_info.status != CORE_RPC_STATUS_OK)
       return false;
     
-    addr_str_local = alias_info.alias_details.address;
-    return true;
+    addr_str_local = alias_info.alias_details.address;   
   }
 
   if (!get_account_address_from_str(addr, addr_str_local))
@@ -500,7 +500,7 @@ bool daemon_backend::transfer(const view::transfer_params& tp, currency::transac
     dsts.push_back(currency::tx_destination_entry());
     if (!get_transfer_address(d.address, dsts.back().addr))
     {
-      m_pview->show_msg_box("Failed to send transaction: wrong address");
+      m_pview->show_msg_box("Failed to send transaction: invalid address");
       return false;
     }
     if(!currency::parse_amount(dsts.back().amount, d.amount))
