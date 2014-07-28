@@ -60,11 +60,12 @@ For Ubuntu (Debian):
 `sudo apt-get install cmake libboost1.55 g++`
 
 OpenCL SDK:  
+AMD APP SDK 2.9  
 http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/  
-or  
+or NVidia CUDA 6.0 (build script doesn't work with previous versions)
 https://developer.nvidia.com/cuda-downloads
 
-Set AMDAPPSDKROOT or CUDA_PATH if they have not been set already depending on SDK you installed:  
+Set AMDAPPSDKROOT or CUDA_PATH if they have not been set already depending on SDK you installed (run `printenv` to check):  
 `export AMDAPPSDKROOT=/opt/AMDAPP`  
 or  
 `export CUDA_PATH=/usr/local/cuda`
@@ -96,8 +97,11 @@ http://www.microsoft.com/en-US/download/details.aspx?id=34673
 http://www.cmake.org/files/v3.0/cmake-3.0.0-win32-x86.exe  
 http://sourceforge.net/projects/boost/files/boost-binaries/1.55.0-build2/boost_1_55_0-msvc-11.0-64.exe/download
 
-OpenCL SDK (you can install CUDA too):  
-http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/
+OpenCL SDK:  
+AMD APP SDK 2.9  
+http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/  
+or NVidia CUDA 6.0 (build script doesn't work with previous versions)
+https://developer.nvidia.com/cuda-downloads
 
 To build, edit paths to Boost in `cmake-vs2012.bat` and run it.  
 Open the generated `build/boolberry.sln` in VS2012, change the solution configuration to `Release` and build the targets you need in the prog group.  
