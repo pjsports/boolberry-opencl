@@ -152,6 +152,12 @@ namespace mining
 	void simpleminer::worker_thread(uint64_t start_nonce, uint32_t nonce_offset, std::atomic<uint32_t> *result, std::atomic<bool> *do_reset, std::atomic<bool> *done) {
 		//	  printf("Worker thread starting at %lu + %u\n", start_nonce, nonce_offset);
 		currency::blobdata blob = m_job.blob;
+		currency::difficulty_type difficulty = m_job.difficulty;
+		if (difficulty == 0) {
+			LOG_PRINT_RED_L0("Job difficulty is 0. Skipping the job.");
+			(*do_reset) = true;
+			return;
+		}
 		while (!*do_reset) {
 			m_hashes_done += attempts_per_loop;
 
@@ -164,7 +170,7 @@ namespace mining
 			uint64_t* output = new uint64_t[OUTPUT_SIZE];
 			memset(output, 0, OUTPUT_SIZE * sizeof(uint64_t));
 			pOCL_Device->CopyBufferToDevice(output, 1, OUTPUT_SIZE * sizeof(uint64_t));	
-			pOCL_Device->run(start_nonce+nonce_offset, ULLONG_MAX / m_job.difficulty);
+			pOCL_Device->run(start_nonce+nonce_offset, ULLONG_MAX / difficulty);
 			pOCL_Device->CopyBufferToHost(output, 1, OUTPUT_SIZE * sizeof(uint64_t));
 			for (uint64_t i = 0; i < output[OUTPUT_SIZE-1]; i++) {
 				uint64_t nounce = output[i];
@@ -408,6 +414,7 @@ namespace mining
 			m_http_client.disconnect();            
 			return false;
 		}
+		m_scratchpad.clear();
 		if(!currency::hexstr_to_addendum(scr_resp.scratchpad_hex, m_scratchpad))
 		{
 			LOG_ERROR("Failed to get scratchpad: hexstr_to_addendum failed.  Disconnecting and retrying...");
