@@ -153,11 +153,6 @@ namespace mining
 		//	  printf("Worker thread starting at %lu + %u\n", start_nonce, nonce_offset);
 		currency::blobdata blob = m_job.blob;
 		currency::difficulty_type difficulty = m_job.difficulty;
-		if (difficulty == 0) {
-			LOG_PRINT_RED_L0("Job difficulty is 0. Skipping the job.");
-			(*do_reset) = true;
-			return;
-		}
 		while (!*do_reset) {
 			m_hashes_done += attempts_per_loop;
 
@@ -170,7 +165,7 @@ namespace mining
 			uint64_t* output = new uint64_t[OUTPUT_SIZE];
 			memset(output, 0, OUTPUT_SIZE * sizeof(uint64_t));
 			pOCL_Device->CopyBufferToDevice(output, 1, OUTPUT_SIZE * sizeof(uint64_t));	
-			pOCL_Device->run(start_nonce+nonce_offset, ULLONG_MAX / difficulty);
+			pOCL_Device->run(start_nonce+nonce_offset, difficulty == 0 ? ULLONG_MAX : ULLONG_MAX / difficulty);
 			pOCL_Device->CopyBufferToHost(output, 1, OUTPUT_SIZE * sizeof(uint64_t));
 			for (uint64_t i = 0; i < output[OUTPUT_SIZE-1]; i++) {
 				uint64_t nounce = output[i];
