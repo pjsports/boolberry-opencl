@@ -12,6 +12,9 @@
 
 #include "currency_core/OCL_Device.h"
 
+#define LOCAL_SCRATCHPAD_CACHE_EXPIRATION_INTERVAL 60*60*24*5   //5 days
+#define LOCAL_SCRATCHPAD_CACHE_STORE_INTERVAL      60*60*12     //12 hours
+
 namespace mining
 {
   class  simpleminer
@@ -41,13 +44,17 @@ namespace mining
     static bool native_height_info_to_text_height_info(height_info& job, const height_info_native& hi_native);
 
     bool get_job();
-    bool get_whole_scratchpad();
+    bool reinit_scratchpad();
     bool apply_addendums(const std::list<addendum>& addms);
     bool pop_addendum(const addendum& add);
     bool push_addendum(const addendum& add);
     void worker_thread(uint64_t start_nonce, uint32_t nonce_offset, std::atomic<uint32_t> *result, std::atomic<bool> *do_reset, std::atomic<bool> *done);
     void update_fast_scratchpad();
     void free_fast_scratchpad();
+    bool init_scratchpad();
+    bool reset_scratchpad();
+    bool load_scratchpad_from_file(const std::string& path);
+    bool store_scratchpad_to_file(const std::string& path);
 
     std::vector<mining::addendum> m_blocks_addendums; //need to handle splits without re-downloading whole scratchpad
     height_info_native m_hi;
@@ -55,6 +62,7 @@ namespace mining
     crypto::hash *m_fast_scratchpad;
     uint32_t m_fast_scratchpad_pages;
     uint64_t m_last_job_ticks;
+    uint64_t m_last_scratchpad_store_time;
     bool m_fast_mmapped;
     uint32_t m_threads_total;
     std::atomic<uint64_t> m_hashes_done;
@@ -62,6 +70,8 @@ namespace mining
     simpleminer::job_details_native m_job;
     std::condition_variable m_work_done_cond;
     std::mutex m_work_mutex;
+    std::string m_scratchpad_url;
+    std::string m_scratchpad_local_path;
 
     std::string m_pool_ip;
     std::string m_pool_port;
