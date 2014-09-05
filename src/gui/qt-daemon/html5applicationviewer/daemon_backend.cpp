@@ -4,7 +4,7 @@
 
 
 #include "daemon_backend.h"
-
+#include "currency_core/alias_helper.h"
 
 
 daemon_backend::daemon_backend():m_pview(&m_view_stub),
@@ -22,7 +22,8 @@ daemon_backend::daemon_backend():m_pview(&m_view_stub),
   m_wallet->callback(this);
 }
 
-const command_line::arg_descriptor<bool> arg_alloc_win_console   = {"alloc-win-clonsole", "Allocates debug console with GUI", false};
+const command_line::arg_descriptor<bool> arg_alloc_win_console = {"alloc-win-clonsole", "Allocates debug console with GUI", false};
+const command_line::arg_descriptor<std::string> arg_html_folder = {"html-path", "Manually set GUI html folder path", "",  true};
 
 daemon_backend::~daemon_backend()
 {
@@ -63,6 +64,8 @@ bool daemon_backend::start(int argc, char* argv[], view::i_view* pview_handler)
   command_line::add_arg(desc_cmd_sett, command_line::arg_console);
   command_line::add_arg(desc_cmd_sett, command_line::arg_show_details);
   command_line::add_arg(desc_cmd_sett, arg_alloc_win_console);
+  command_line::add_arg(desc_cmd_sett, arg_html_folder);
+  
 
 
   currency::core::init_options(desc_cmd_sett);
@@ -108,10 +111,22 @@ bool daemon_backend::start(int argc, char* argv[], view::i_view* pview_handler)
     return false;
 
   //set up logging options
-  if(command_line::has_arg(vm, arg_alloc_win_console))
+  if (command_line::has_arg(vm, arg_alloc_win_console))
   {
      log_space::log_singletone::add_logger(LOGGER_CONSOLE, NULL, NULL);
   }
+
+  std::string path_to_html;
+  if (!command_line::has_arg(vm, arg_html_folder))
+  {
+    path_to_html = string_tools::get_current_module_folder() + "/html";
+  }
+  else
+  {
+    path_to_html = command_line::get_arg(vm, arg_html_folder);
+  }
+
+  m_pview->set_html_path(path_to_html);
 
   boost::filesystem::path log_file_path(command_line::get_arg(vm, command_line::arg_log_file));
   if (log_file_path.empty())
@@ -396,16 +411,25 @@ bool daemon_backend::open_wallet(const std::string& path, const std::string& pas
   {
     m_pview->show_msg_box(std::string("Failed to load wallet: ") + e.what());
     m_wallet.reset(new tools::wallet2());
+    m_wallet->callback(this);
     return false;
   }
 
   m_wallet->init(std::string("127.0.0.1:") + std::to_string(m_rpc_server.get_binded_port()));
   update_wallet_info();
-  m_last_wallet_synch_height = 0;
   m_pview->show_wallet();
+  load_recent_transfers();
+  m_last_wallet_synch_height = 0;  
   return true;
 }
 
+bool daemon_backend::load_recent_transfers()
+{
+  view::transfers_array tr_hist;
+  m_wallet->get_recent_transfers_history(tr_hist.history, 0, 1000);
+  m_wallet->get_unconfirmed_transfers(tr_hist.unconfirmed);
+  return m_pview->set_recent_transfers(tr_hist);
+}
 
 bool daemon_backend::generate_wallet(const std::string& path, const std::string& password)
 {
@@ -416,6 +440,7 @@ bool daemon_backend::generate_wallet(const std::string& path, const std::string&
     {
       m_wallet->store();
       m_wallet.reset(new tools::wallet2());
+      m_wallet->callback(this);
     }
 
     m_wallet->generate(path, password);
@@ -424,6 +449,7 @@ bool daemon_backend::generate_wallet(const std::string& path, const std::string&
   {
     m_pview->show_msg_box(std::string("Failed to generate wallet: ") + e.what());
     m_wallet.reset(new tools::wallet2());
+    m_wallet->callback(this);
     return false;
   }
 
@@ -444,6 +470,7 @@ bool daemon_backend::close_wallet()
     {
       m_wallet->store();
       m_wallet.reset(new tools::wallet2());
+      m_wallet->callback(this);
     }
   }
 
@@ -468,39 +495,6 @@ bool daemon_backend::get_aliases(view::alias_set& al_set)
   return false;
 }
 
-bool daemon_backend::get_transfer_address(const std::string& adr_str, currency::account_public_address& addr)
-{  
-  if (!adr_str.size())
-    return false;
-
-  std::string addr_str_local = adr_str;
-
-  if (adr_str[0] == '@')
-  {
-    //referred by alias name
-    if (adr_str.size() < 2)
-      return false;
-    std::string pure_alias_name = adr_str.substr(1);
-    CHECK_AND_ASSERT_MES(currency::validate_alias_name(pure_alias_name), false, "wrong name set in transfer command");
-
-    //currency::alias_info_base ai = AUTO_VAL_INIT(ai);
-    currency::COMMAND_RPC_GET_ALIAS_DETAILS::response alias_info = AUTO_VAL_INIT(alias_info);
-
-    if (!m_rpc_proxy.get_alias_info(pure_alias_name, alias_info))
-      return false;
-
-    if (alias_info.status != CORE_RPC_STATUS_OK)
-      return false;
-    
-    addr_str_local = alias_info.alias_details.address;   
-  }
-
-  if (!get_account_address_from_str(addr, addr_str_local))
-  {
-    return false;
-  }
-  return true;
-}
 
 bool daemon_backend::transfer(const view::transfer_params& tp, currency::transaction& res_tx)
 {
@@ -520,7 +514,7 @@ bool daemon_backend::transfer(const view::transfer_params& tp, currency::transac
   for(auto& d: tp.destinations)
   {
     dsts.push_back(currency::tx_destination_entry());
-    if (!get_transfer_address(d.address, dsts.back().addr))
+    if (!tools::get_transfer_address(d.address, dsts.back().addr, m_rpc_proxy))
     {
       m_pview->show_msg_box("Failed to send transaction: invalid address");
       return false;
@@ -573,13 +567,11 @@ bool daemon_backend::transfer(const view::transfer_params& tp, currency::transac
 bool daemon_backend::update_wallet_info()
 {
   CRITICAL_REGION_LOCAL(m_wallet_lock);
-
-
   view::wallet_info wi = AUTO_VAL_INIT(wi);
   wi.address = m_wallet->get_account().get_public_address_str();
   wi.tracking_hey = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
-  wi.balance = currency::print_money(m_wallet->balance());
-  wi.unlocked_balance = currency::print_money(m_wallet->unlocked_balance());
+  wi.balance = m_wallet->balance();
+  wi.unlocked_balance = m_wallet->unlocked_balance();
   wi.path = m_wallet->get_wallet_path();
   m_pview->update_wallet_info(wi);
   return true;
@@ -590,52 +582,20 @@ void daemon_backend::on_new_block(uint64_t /*height*/, const currency::block& /*
 
 }
 
-void fill_transfer_details(const currency::transaction& tx, const tools::money_transfer2_details& td, view::wallet_transfer_info_details& res_td)
-{
-  for (auto si: td.spent_indices)
-  {
-    CHECK_AND_ASSERT_MES(si < tx.vin.size(), void(), "Internal error: wrong tx transfer details: spend index=" << si << " is greater than transaction inputs vector " << tx.vin.size());
-    res_td.spn.push_back(currency::print_money(boost::get<currency::txin_to_key>(tx.vin[si]).amount));
-  }
-  
-  for (auto ri : td.receive_indices)
-  {
-    CHECK_AND_ASSERT_MES(ri < tx.vout.size(), void(), "Internal error: wrong tx transfer details: reciev index=" << ri << " is greater than transaction outputs vector " << tx.vout.size());
-    res_td.rcv.push_back(currency::print_money(tx.vout[ri].amount));
-  }
-}
-
-void daemon_backend::on_money_received2(const currency::block& b, const currency::transaction& tx, uint64_t amount, const tools::money_transfer2_details& td)
+void daemon_backend::on_transfer2(const tools::wallet_rpc::wallet_transfer_info& wti)
 {
   view::transfer_event_info tei = AUTO_VAL_INIT(tei);
-  tei.ti.amount = currency::print_money(amount);
-  tei.ti.timestamp = b.timestamp;
-  tei.ti.height = currency::get_block_height(b);
-  tei.ti.is_income = true;
-  tei.ti.spent = false;
-  tei.ti.tx_hash = string_tools::pod_to_hex(currency::get_transaction_hash(tx));
-  tei.balance = currency::print_money(m_wallet->balance());
-  tei.unlocked_balance = currency::print_money(m_wallet->unlocked_balance());
-  fill_transfer_details(tx, td, tei.ti.td);
-  m_pview->money_receive(tei);
+  tei.ti = wti;
+  tei.balance = m_wallet->balance();
+  tei.unlocked_balance = m_wallet->unlocked_balance();
+  m_pview->money_transfer(tei);
 }
-
-void daemon_backend::on_money_spent2(const currency::block& b, const currency::transaction& tx, uint64_t amount, const tools::money_transfer2_details& td)
+void daemon_backend::on_money_sent(const tools::wallet_rpc::wallet_transfer_info& wti)
 {
   view::transfer_event_info tei = AUTO_VAL_INIT(tei);
-  tei.ti.timestamp = b.timestamp;
-  tei.ti.amount = currency::print_money(amount);
-  tei.ti.height = currency::get_block_height(b);
-  tei.ti.is_income = false;
-  tei.ti.spent = true;
-  tei.ti.tx_hash = string_tools::pod_to_hex(currency::get_transaction_hash(tx));
-  tei.balance = currency::print_money(m_wallet->balance());
-  tei.unlocked_balance = currency::print_money(m_wallet->unlocked_balance());
-  fill_transfer_details(tx, td, tei.ti.td);
-  m_pview->money_spent(tei);
+  tei.ti = wti;
+  tei.balance = m_wallet->balance();
+  tei.unlocked_balance = m_wallet->unlocked_balance();
+  m_pview->money_transfer(tei);
 }
-
-
-
-
 

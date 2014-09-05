@@ -15,6 +15,7 @@ DISABLE_VS_WARNINGS(4503)
 #include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage_template_helper.h"
 #include "rpc/core_rpc_server_commands_defs.h"
+#include "wallet/wallet_rpc_server_commans_defs.h"
 POP_WARNINGS
 
 #endif
@@ -139,43 +140,10 @@ public:
     END_KV_SERIALIZE_MAP()
   };
 
-  struct wallet_transfer_info_details
-  {
-    std::list<std::string> rcv;
-    std::list<std::string> spn;
-    
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(rcv)
-      KV_SERIALIZE(spn)
-    END_KV_SERIALIZE_MAP()
-
-  };
-
-  struct wallet_transfer_info
-  {
-    std::string amount;
-    uint64_t    timestamp;
-    std::string tx_hash;
-    uint64_t    height;
-    bool        spent;
-    bool        is_income;
-    wallet_transfer_info_details td;
-
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(amount)
-      KV_SERIALIZE(tx_hash)
-      KV_SERIALIZE(height)
-      KV_SERIALIZE(spent)
-      KV_SERIALIZE(is_income)
-      KV_SERIALIZE(timestamp)      
-      KV_SERIALIZE(td)
-    END_KV_SERIALIZE_MAP()
-  };
-
   struct wallet_info
   {
-    std::string unlocked_balance;
-    std::string balance;
+    uint64_t unlocked_balance;
+    uint64_t balance;
     std::string address;
     std::string tracking_hey;
     std::string path;
@@ -191,15 +159,27 @@ public:
 
   struct transfer_event_info
   {
-    wallet_transfer_info ti;
-    std::string unlocked_balance;
-    std::string balance;
+    tools::wallet_rpc::wallet_transfer_info ti;
+    uint64_t unlocked_balance;
+    uint64_t balance;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(ti)
       KV_SERIALIZE(unlocked_balance)
       KV_SERIALIZE(balance)
     END_KV_SERIALIZE_MAP()
+  };
+
+  struct transfers_array
+  {
+    std::vector<tools::wallet_rpc::wallet_transfer_info> unconfirmed;
+    std::vector<tools::wallet_rpc::wallet_transfer_info> history;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(unconfirmed)
+      KV_SERIALIZE(history)
+    END_KV_SERIALIZE_MAP()
+
   };
 
   struct header_entry
@@ -244,11 +224,13 @@ public:
     virtual bool show_msg_box(const std::string& message)=0;
     virtual bool update_wallet_status(const wallet_status_info& wsi)=0;
     virtual bool update_wallet_info(const wallet_info& wsi)=0;
-    virtual bool money_receive(const transfer_event_info& wsi)=0;
-    virtual bool money_spent(const transfer_event_info& wsi)=0;
+    virtual bool money_transfer(const transfer_event_info& wsi) = 0;
+    virtual bool money_sent_unconfirmed(const transfer_event_info& wsi) = 0;
     virtual bool show_wallet()=0;
-    virtual bool hide_wallet() = 0;
+    virtual bool hide_wallet()= 0;
     virtual bool switch_view(int view_no)=0;
+    virtual bool set_recent_transfers(const transfers_array& ta) = 0;
+    virtual bool set_html_path(const std::string& path)=0;
   };
 
   struct view_stub: public i_view
@@ -258,10 +240,12 @@ public:
     virtual bool show_msg_box(const std::string& /*message*/){return true;}
     virtual bool update_wallet_status(const wallet_status_info& /*wsi*/){return true;}
     virtual bool update_wallet_info(const wallet_info& /*wsi*/){return true;}
-    virtual bool money_receive(const transfer_event_info& /*wsi*/){return true;}
-    virtual bool money_spent(const transfer_event_info& /*wsi*/){return true;}
+    virtual bool money_transfer(const transfer_event_info& /*wsi*/){ return true; }
+    virtual bool money_sent_unconfirmed(const transfer_event_info& wsi){ return true; }
     virtual bool show_wallet(){return true;}
     virtual bool hide_wallet(){ return true; }
     virtual bool switch_view(int /*view_no*/){ return true; }
+    virtual bool set_recent_transfers(const transfers_array& /*ta*/){ return true; }
+    virtual bool set_html_path(const std::string& path){ return true; };
   };
 }

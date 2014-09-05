@@ -417,11 +417,17 @@ namespace currency
       LOG_PRINT_L1("COMMAND_RPC_GETBLOCKTEMPLATE: Alias requested for " << ai.m_alias << " -->>" << req.alias_details.details.address);
     }
 
+    bool donations_vote = true;
+    if (req.dev_bounties_vote.type() == typeid(bool))
+    {
+      donations_vote = boost::get<bool>(req.dev_bounties_vote);
+    }
+
     block b = AUTO_VAL_INIT(b);
     currency::blobdata blob_reserve = PROJECT_VERSION_LONG;
     blob_reserve.resize(blob_reserve.size() + 1 + req.reserve_size, 0);
     wide_difficulty_type dt = 0;
-    if(!m_core.get_block_template(b, acc, dt, res.height, blob_reserve, req.dev_bounties_vote, ai))
+    if (!m_core.get_block_template(b, acc, dt, res.height, blob_reserve, donations_vote, ai))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: failed to create block template";
@@ -731,7 +737,7 @@ namespace currency
     COMMAND_RPC_GETBLOCKTEMPLATE::response bt_res = AUTO_VAL_INIT(bt_res);
 
     //bt_req.alias_details  - set alias here
-    bt_req.dev_bounties_vote = true; //set vote 
+    bt_req.dev_bounties_vote = epee::serialization::storage_entry(true); //set vote 
     bt_req.reserve_size = 0; //if you want to put some data into extra
     // !!!!!!!! SET YOUR WALLET ADDRESS HERE  !!!!!!!!
     bt_req.wallet_address = "1HNJjUsofq5LYLoXem119dd491yFAb5g4bCHkecV4sPqigmuxw57Ci9am71fEN4CRmA9jgnvo5PDNfaq8QnprWmS5uLqnbq";
@@ -825,6 +831,22 @@ namespace currency
     m_core.get_blockchain_storage().copy_scratchpad(scratchpad_local);
     addendum_to_hexstr(scratchpad_local, res.scratchpad_hex); 
     get_current_hi(res.hi);
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_alias_by_address(const COMMAND_RPC_GET_ALIASES_BY_ADDRESS::request& req, COMMAND_RPC_GET_ALIASES_BY_ADDRESS::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
+  {
+    account_public_address addr = AUTO_VAL_INIT(addr);
+    if (!get_account_address_from_str(addr, req))
+    {
+      res.status = CORE_RPC_STATUS_FAILED;
+    }
+    res.alias = m_core.get_blockchain_storage().get_alias_by_address(addr);
+    if (res.alias.size())
+      res.status = CORE_RPC_STATUS_OK;
+    else
+      res.status = CORE_RPC_STATUS_NOT_FOUND;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -850,10 +872,6 @@ namespace currency
       LOG_ERROR("Submited block not accepted");
       return true;
     }
-    //@#@
-    //LOG_PRINT_L0("block_hash: " << get_block_hash(b));
-    //LOG_PRINT_L0("block_hashing_blob:" << string_tools::buff_to_hex_nodelimer(currency::get_block_hashing_blob(b)));
-    
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -871,6 +889,43 @@ namespace currency
     else
       res.status = CORE_RPC_STATUS_OK;
 
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_getfullscratchpad2(const epee::net_utils::http::http_request_info& query_info, epee::net_utils::http::http_response_info& response_info, connection_context& cntx)
+  {
+    if (!check_core_ready())
+    {
+      return true;
+    }
+    mining::height_info hi = AUTO_VAL_INIT(hi);
+    get_current_hi(hi);
+    std::string json_hi;
+    epee::serialization::store_t_to_json(hi, json_hi);
+    uint32_t str_len = static_cast<uint32_t>(json_hi.size());
+    response_info.m_body.append(reinterpret_cast<const char*>(&str_len), sizeof(str_len));
+    response_info.m_body.append(json_hi.data(), json_hi.size());
+    m_core.get_blockchain_storage().copy_scratchpad(response_info.m_body);    
+
+    //TODO: remove this code
+    LOG_PRINT_L0("[getfullscratchpad2]: json prefix len: " << str_len << ", JSON: " << json_hi);
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_addendums(const COMMAND_RPC_GET_ADDENDUMS::request& req, COMMAND_RPC_GET_ADDENDUMS::response& res, epee::json_rpc::error& error_resp, connection_context& cntx)
+  {
+    if (!check_core_ready())
+    {
+      res.status = CORE_RPC_STATUS_BUSY;
+      return true;
+    }
+
+    if (!get_addendum_for_hi(req, res.addms))
+    {
+      res.status = "Fail at get_addendum_for_hi, check daemon logs for details";
+      return true;
+    }
+    res.status = CORE_RPC_STATUS_OK;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

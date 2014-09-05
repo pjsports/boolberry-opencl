@@ -26,6 +26,8 @@
 #include "crypto/hash.h"
 #include "checkpoints.h"
 
+POD_MAKE_HASHABLE(currency, account_public_address);
+
 namespace currency
 {
 
@@ -40,6 +42,7 @@ namespace currency
       transaction tx;
       uint64_t m_keeper_block_height;
       std::vector<uint64_t> m_global_output_indexes;
+      std::vector<bool> m_spent_flags;
     };
 
     struct block_extended_info
@@ -60,6 +63,7 @@ namespace currency
     bool deinit();
 
     void set_checkpoints(checkpoints&& chk_pts) { m_checkpoints = chk_pts; }
+    checkpoints& get_checkpoints() { return m_checkpoints; }
 
     //bool push_new_block();
     bool get_blocks(uint64_t start_offset, size_t count, std::list<block>& blocks, std::list<transaction>& txs);
@@ -103,6 +107,7 @@ namespace currency
     bool get_backward_blocks_sizes(size_t from_height, std::vector<size_t>& sz, size_t count);
     bool get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<uint64_t>& indexs);
     bool get_alias_info(const std::string& alias, alias_info_base& info);
+    std::string get_alias_by_address(const account_public_address& addr);
     bool get_all_aliases(std::list<alias_info>& aliases);
     uint64_t get_aliases_count();
     uint64_t get_scratchpad_size();
@@ -115,10 +120,12 @@ namespace currency
     uint64_t get_current_hashrate(size_t aprox_count);
     bool extport_scratchpad_to_file(const std::string& path);
     bool print_transactions_statistics();
+    bool update_spent_tx_flags_for_input(uint64_t amount, uint64_t global_index, bool spent);
 
     bool is_storing_blockchain(){return m_is_blockchain_storing;}
     wide_difficulty_type block_difficulty(size_t i);
-    bool copy_scratchpad(std::vector<crypto::hash>& scr);//TODO: not the best way, add later update method instead of full copy
+    bool copy_scratchpad(std::vector<crypto::hash>& dst);//TODO: not the best way, add later update method instead of full copy
+    bool copy_scratchpad(std::string& dst);
 
     template<class t_ids_container, class t_blocks_container, class t_missed_container>
     bool get_blocks(const t_ids_container& block_ids, t_blocks_container& blocks, t_missed_container& missed_bs)
@@ -175,7 +182,8 @@ namespace currency
     typedef std::unordered_map<crypto::hash, block> blocks_by_hash;
     typedef std::map<uint64_t, std::vector<std::pair<crypto::hash, size_t>>> outputs_container; //crypto::hash - tx hash, size_t - index of out in transaction
     typedef std::map<std::string, std::list<alias_info_base>> aliases_container; //alias can be address address address + view key
-
+    typedef std::unordered_map<account_public_address, std::string> address_to_aliases_container;
+    
     tx_memory_pool& m_tx_pool;
     critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
@@ -194,6 +202,7 @@ namespace currency
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
     outputs_container m_outputs;
     aliases_container m_aliases;
+    address_to_aliases_container m_addr_to_alias;
     std::vector<crypto::hash> m_scratchpad;
 
     std::string m_config_folder;
@@ -203,6 +212,7 @@ namespace currency
 
     account_keys m_donations_account;
     account_keys m_royalty_account;
+
 
     bool switch_to_alternative_blockchain(std::list<blocks_ext_by_hash::iterator>& alt_chain);
     bool pop_block_from_blockchain();
@@ -241,6 +251,8 @@ namespace currency
     bool validate_donations_value(uint64_t donation, uint64_t royalty);
     //uint64_t get_block_avr_donation_vote(const block& b);
     bool get_required_donations_value_for_next_block(uint64_t& don_am); //applicable only for each CURRENCY_DONATIONS_INTERVAL-th block
+    void fill_addr_to_alias_dict();
+    bool resync_spent_tx_flags();
   };
 
 
@@ -248,8 +260,8 @@ namespace currency
   /*                                                                      */
   /************************************************************************/
 
-  #define CURRENT_BLOCKCHAIN_STORAGE_ARCHIVE_VER          23
-  #define CURRENT_TRANSACTION_CHAIN_ENTRY_ARCHIVE_VER     2
+  #define CURRENT_BLOCKCHAIN_STORAGE_ARCHIVE_VER          25
+  #define CURRENT_TRANSACTION_CHAIN_ENTRY_ARCHIVE_VER     3
   #define CURRENT_BLOCK_EXTENDED_INFO_ARCHIVE_VER         1
 
   template<class archive_t>
@@ -269,6 +281,7 @@ namespace currency
     ar & m_current_block_cumul_sz_limit;
     ar & m_aliases;
     ar & m_scratchpad;
+    
     /*serialization bug workaround*/
     
     uint64_t total_check_count = m_blocks.size() + m_blocks_index.size() + m_transactions.size() + m_spent_keys.size() + m_alternative_chains.size() + m_outputs.size() + m_invalid_blocks.size() + m_current_block_cumul_sz_limit;
@@ -297,6 +310,15 @@ namespace currency
       }
     }
 
+    if(version < 25)
+    {
+      //re-sync spent flags
+      if(!resync_spent_tx_flags())
+      {
+        LOG_ERROR("resync_spent_tx_flags() failed.");
+        throw std::runtime_error("resync_spent_tx_flags() failed.");
+      }
+    }
 
     LOG_PRINT_L2("Blockchain storage:" << ENDL << 
         "m_blocks: " << m_blocks.size() << ENDL  << 
@@ -357,6 +379,7 @@ namespace currency
     return true;
   }
 }
+
 
 
 

@@ -12,7 +12,7 @@
 
 #include "currency_core/OCL_Device.h"
 
-#define LOCAL_SCRATCHPAD_CACHE_EXPIRATION_INTERVAL 60*60*24*5   //5 days
+#define LOCAL_SCRATCHPAD_CACHE_EXPIRATION_INTERVAL 60*60*24*3   //3 days
 #define LOCAL_SCRATCHPAD_CACHE_STORE_INTERVAL      60*60*12     //12 hours
 
 namespace mining

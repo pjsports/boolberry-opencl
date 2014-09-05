@@ -12,6 +12,18 @@
     <script src="files/js/jquery-1.10.2.js"></script>
     <script src="files/js/jquery-ui-1.10.4.custom.js"></script>
     <script src="files/ui_helper.js" type="text/javascript" charset="utf-8"></script>
+    <script src="files/date_format.js"></script>
+
+    <script type="text/javascript" src="files/js/jquery.jqplot.min.js"></script>
+    <script type="text/javascript" src="files/js/plugins/jqplot.dateAxisRenderer.min.js"></script>
+    <script type="text/javascript" src="files/js/plugins/jqplot.ohlcRenderer.min.js"></script>
+    <script type="text/javascript" src="files/js/plugins/jqplot.highlighter.min.js"></script>
+    <!--
+    <script type="text/javascript" src="files/js/jquery.jqplot.js"></script>
+    <script type="text/javascript" src="files/js/plugins/jqplot.dateAxisRenderer.js"></script>
+    <script type="text/javascript" src="files/js/plugins/jqplot.ohlcRenderer.js"></script>
+    <script type="text/javascript" src="files/js/plugins/jqplot.highlighter.js"></script>
+    -->
 </head>
 
 <body>
@@ -23,12 +35,13 @@
             <div class="menu_bar_tabs">
                 <div id="daemon_state_view_menu" class="inline_menu_bar_item"  view_name="daemon_state_view">Connectivity</div>
                 <div id="wallet_view_menu"  class="inline_menu_bar_item" view_name="wallet_view">Wallet</div>
+                <div id="exchange_view_menu"  class="inline_menu_bar_item" view_name="exchange_view" callback="on_exchange_tab_switch">Exchange</div>
             </div>
         </div>
     </div>
 
     <div id="daemon_state_view" class="view_hidden menu_view_inner_area" >
-        <div id="daemon_state_internal_panel" class="wallet_panel">
+        <div id="daemon_state_internal_panel" class="active_panel">
             <div class="daemon_view_general_status_block"><span class="daemon_view_general_status_text">Status:</span> <span  id="daemon_status_text">Loading blockchain data...</span></div>
             <div id="synchronization_progressbar_block">
                 <div style="width: 200px; height: 20px;float: left;" id="synchronization_progressbar"></div><span style="margin-left: 10px;" id="daemon_synchronization_text">--</span>
@@ -55,6 +68,13 @@
                     <span class="daemon_view_param_value"><span id="version_text">---</span><span class="daemon_view_param_value_last_ver_info" id="last_actual_version_text">(available version: 0.1.3.20)</span></span>
 
                 </div>
+
+                <div class="daemon_view_details_status_block">
+                    <span class="daemon_view_param_title">Exchange rate: </span>
+                    <span class="daemon_view_param_value" id="exchange_rate_text">---</span>
+
+                </div>
+
             </div>
             <div class="buttons_group">
                 <!-- <div id="domining_button" class="common_button">Generate coins</div> -->
@@ -67,17 +87,18 @@
             <div id="generate_wallet_button" class="common_button">Generate new wallet</div>
         </div>
         <div id="wallet_workspace_area">
-            <div class="wallet_panel">
+            <div class="active_panel">
                 <div class="wallet_left_panel_entry">
-                    <span class="balance_text">Path:</span>
-                    <span class="my_addres_text" id="wallet_path">C:\home\projects\boolberry\build\src\Release\wallet.bin</span><br>
-                    <span class="balance_text">Address:</span>
-                    <span class="my_addres_text" id="wallet_address">1HNJjUsofq5LYLoXem119dd491yFAb5g4bCHkecV4sPqigmuxw57Ci9am71fEN4CRmA9jgnvo5PDNfaq8QnprWmS5uLqnbq</span><br>
-
                     <span class="balance_text">Balance:</span>
                     <span class="wallet_balance" id="wallet_balance">0.0</span>
                     <span class="balance_text">Unlocked:</span>
                     <span class="wallet_balance" id="wallet_unlocked_balance">0.0</span>
+                    <span class="balance_text">Est. value:
+                    <span class="wallet_balance" id="est_value_btc_id"></span>BTC/<span class="wallet_balance" id="est_value_usd_id"></span>USD</span><span  style="font-size: 40%"><br><br></span>
+                    <span class="wallet_secondary_text" >Path:</span>
+                    <span class="my_addres_text" id="wallet_path">C:\home\projects\boolberry\build\src\Release\wallet.bin</span><br>
+                    <span class="wallet_secondary_text">Address:</span>
+                    <span class="my_addres_text" id="wallet_address">1HNJjUsofq5LYLoXem119dd491yFAb5g4bCHkecV4sPqigmuxw57Ci9am71fEN4CRmA9jgnvo5PDNfaq8QnprWmS5uLqnbq</span><br>
                 </div>
                 <div id="synchronizing_wallet_block">
                     Synchronizing wallet...
@@ -88,7 +109,7 @@
                 </div>
             </div>
             <div class="wallet_separator">Send payment</div>
-            <div class="wallet_panel">
+            <div class="active_panel">
                 <div>
                     <table cellspacing="3px">
                         <tr>
@@ -128,8 +149,27 @@
             </div>
             <div class="wallet_separator">Recent transfers</div>
             <div class="wallet_panet_transparent">
+                <div class='transfer_entry_line' style='color: #373435; height: 20px; background: #f3f3f2; font-weight: bold;'>
+                    <span style='position: absolute; left: 51px;'>Date</span>
+                    <span style='position: absolute; left: 180px;'>Status</span>
+                    <span style='position: absolute; left: 250px;'>Transaction</span>
+                    <span style='position: absolute; left: 340px;'>Amount</span>
+                    <span style='position: absolute; left: 480px;'>Recipient</span>
+                </div>
+                <div id="unconfirmed_transfers_container_id"></div>
                 <div id="recent_transfers_container_id"></div>
             </div>
+        </div>
+    </div>
+    <div id="exchange_view" class="view_hidden menu_view_inner_area" >
+        <div class="active_panel" style="text-align: center;">
+            <div>
+                <div id="plot_area" style="margin-left: 40px;" />
+            </div>
+            <br>
+            <span>The information above loaded via public API from <img height="12px" src="files/poloniex.png"><br></span>
+        </div>
+
         </div>
     </div>
 </div>

@@ -30,9 +30,6 @@ public:
     explicit Html5ApplicationViewer(QWidget *parent = 0);
     virtual ~Html5ApplicationViewer();
 
-    void loadFile(const QString &fileName);
-    void loadUrl(const QUrl &url);
-
     // Note that this will only have an effect on Fremantle.
     void setOrientation(ScreenOrientation orientation);
 
@@ -52,11 +49,13 @@ public slots:
     QString get_version();
     QString transfer(const QString& json_transfer_object);
     void message_box(const QString& msg);
-    QString request_uri(const QString& uri, const QString& params);
+    QString request_uri(const QString& url_str, const QString& params, const QString& callbackname);    
     QString request_aliases();
     bool init_config();
 
 private:
+    void loadFile(const QString &fileName);
+    void loadUrl(const QUrl &url);
     void closeEvent(QCloseEvent *event);
     
     bool store_config();
@@ -67,21 +66,23 @@ private:
     virtual bool show_msg_box(const std::string& message);
     virtual bool update_wallet_status(const view::wallet_status_info& wsi);
     virtual bool update_wallet_info(const view::wallet_info& wsi);
-    virtual bool money_receive(const view::transfer_event_info& tei);
-    virtual bool money_spent(const view::transfer_event_info& tei);
+    virtual bool money_transfer(const view::transfer_event_info& tei);
+    virtual bool money_sent_unconfirmed(const view::transfer_event_info& wsi);
     virtual bool show_wallet();
     virtual bool hide_wallet();
     virtual bool switch_view(int view_no);
-
+    virtual bool set_recent_transfers(const view::transfers_array& ta);
+    virtual bool set_html_path(const std::string& path);
     //----------------------------------------------
     bool is_uri_allowed(const QString& uri);
-
 
     class Html5ApplicationViewerPrivate *m_d;
     daemon_backend m_backend;
     std::atomic<bool> m_quit_requested;
     std::atomic<bool> m_deinitialize_done;
     gui_config m_config;
+
+    std::atomic<size_t> m_request_uri_threads_count;
 };
 
 #endif // HTML5APPLICATIONVIEWER_H

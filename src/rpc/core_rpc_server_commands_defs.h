@@ -8,12 +8,16 @@
 #include "currency_core/difficulty.h"
 #include "crypto/hash.h"
 #include "p2p/p2p_protocol_defs.h"
+#include "rpc/mining_protocol_defs.h"
+#include "storages/portable_storage_base.h"
 
 namespace currency
 {
   //-----------------------------------------------
-#define CORE_RPC_STATUS_OK     "OK"
-#define CORE_RPC_STATUS_BUSY   "BUSY"
+#define CORE_RPC_STATUS_OK          "OK"
+#define CORE_RPC_STATUS_BUSY        "BUSY"
+#define CORE_RPC_STATUS_NOT_FOUND   "NOT FOUND"
+#define CORE_RPC_STATUS_FAILED        "FAILED"
 
 
   struct alias_rpc_details_base
@@ -361,7 +365,7 @@ namespace currency
       uint64_t reserve_size;       //max 255 bytes
       std::string wallet_address;
       alias_rpc_details alias_details;
-      bool dev_bounties_vote;
+      epee::serialization::storage_entry dev_bounties_vote;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(reserve_size)
@@ -540,6 +544,42 @@ namespace currency
     };
   };
 
+
+  struct COMMAND_RPC_GET_ALIASES_BY_ADDRESS
+  {
+
+    typedef std::string request;
+
+    struct response
+    {
+      std::string alias;
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(alias)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
+
+  struct COMMAND_RPC_GET_ADDENDUMS
+  {
+
+    typedef mining::height_info request;
+
+    struct response
+    {
+      std::string status;
+      std::list<mining::addendum> addms;
+
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(addms)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
 
 }
 

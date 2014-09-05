@@ -16,6 +16,7 @@
 #include "net/http_client.h"
 #include "storages/http_abstract_invoke.h"
 #include "rpc/core_rpc_server_commands_defs.h"
+#include "wallet_rpc_server_commans_defs.h"
 #include "currency_core/currency_format_utils.h"
 #include "common/unordered_containers_boost_serialization.h"
 #include "crypto/chacha8.h"
@@ -41,8 +42,8 @@ namespace tools
     virtual void on_new_block(uint64_t /*height*/, const currency::block& /*block*/) {}
     virtual void on_money_received(uint64_t /*height*/, const currency::transaction& /*tx*/, size_t /*out_index*/) {}
     virtual void on_money_spent(uint64_t /*height*/, const currency::transaction& /*in_tx*/, size_t /*out_index*/, const currency::transaction& /*spend_tx*/) {}
-    virtual void on_money_received2(const currency::block& /*b*/, const currency::transaction& /*tx*/, uint64_t /*amount*/, const money_transfer2_details& td) {}
-    virtual void on_money_spent2(const currency::block& /*b*/, const currency::transaction& /*in_tx*/, uint64_t /*amount*/, const money_transfer2_details& td) {}
+    virtual void on_transfer2(const wallet_rpc::wallet_transfer_info& wti) {}
+    virtual void on_money_sent(const wallet_rpc::wallet_transfer_info& wti) {}
   };
 
   struct tx_dust_policy
@@ -58,7 +59,6 @@ namespace tools
     {
     }
   };
-
 
   class wallet2
   {
@@ -80,8 +80,10 @@ namespace tools
     struct unconfirmed_transfer_details
     {
       currency::transaction m_tx;
-      uint64_t m_change;
-      time_t m_sent_time; 
+      uint64_t      m_change;
+      time_t        m_sent_time; 
+      std::string   m_recipient;
+      std::string   m_recipient_alias;
     };
 
     struct payment_details
@@ -108,11 +110,13 @@ namespace tools
     };
 
     void generate(const std::string& wallet, const std::string& password);
-    void load(const std::string& wallet, const std::string& password);
+    void load(const std::string& wallet, const std::string& password);    
     void store();
     std::string get_wallet_path(){ return m_keys_file; }
     currency::account_base& get_account(){return m_account;}
 
+    void get_recent_transfers_history(std::vector<wallet_rpc::wallet_transfer_info>& trs, size_t offset, size_t count);
+    void get_unconfirmed_transfers(std::vector<wallet_rpc::wallet_transfer_info>& trs);
     void init(const std::string& daemon_address = "http://localhost:8080");
     bool deinit();
 
@@ -137,6 +141,7 @@ namespace tools
     bool check_connection();
     void get_transfers(wallet2::transfer_container& incoming_transfers) const;
     void get_payments(const crypto::hash& payment_id, std::list<payment_details>& payments) const;
+    bool get_transfer_address(const std::string& adr_str, currency::account_public_address& addr);
     uint64_t get_blockchain_current_height() const { return m_local_bc_height; }
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
@@ -153,6 +158,10 @@ namespace tools
       if(ver < 7)
         return;
       a & m_payments;
+      if (ver < 8)
+        return;
+      a & m_transfer_history;
+
     }
     static uint64_t select_indices_for_transfer(std::list<size_t>& ind, std::map<uint64_t, std::list<size_t> >& found_free_amounts, uint64_t needed_money);
   private:
@@ -168,9 +177,14 @@ namespace tools
     void pull_blocks(size_t& blocks_added);
     uint64_t select_transfers(uint64_t needed_money, size_t fake_outputs_count, uint64_t dust, std::list<transfer_container::iterator>& selected_transfers);
     bool prepare_file_names(const std::string& file_path);
-    void process_unconfirmed(const currency::transaction& tx);
-    void add_unconfirmed_tx(const currency::transaction& tx, uint64_t change_amount);
+    void process_unconfirmed(const currency::transaction& tx, std::string& recipient, std::string& recipient_alias);
+    void add_unconfirmed_tx(const currency::transaction& tx, uint64_t change_amount, std::string recipient);
     void update_current_tx_limit();
+    void prepare_wti(wallet_rpc::wallet_transfer_info& wti, uint64_t height, uint64_t timestamp, const currency::transaction& tx, uint64_t amount, const money_transfer2_details& td);
+    void handle_money_received2(const currency::block& b, const currency::transaction& tx, uint64_t amount, const money_transfer2_details& td);
+    void handle_money_spent2(const currency::block& b, const currency::transaction& in_tx, uint64_t amount, const money_transfer2_details& td, const std::string& recipient, const std::string& recipient_alias);
+    std::string get_alias_for_address(const std::string& addr);
+    void wallet_transfer_info_from_unconfirmed_transfer_details(const unconfirmed_transfer_details& utd, wallet_rpc::wallet_transfer_info& wti);
     
 
     currency::account_base m_account;
@@ -189,11 +203,17 @@ namespace tools
     uint64_t m_upper_transaction_size_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
 
     std::atomic<bool> m_run;
+    std::vector<wallet_rpc::wallet_transfer_info> m_transfer_history;
 
     i_wallet2_callback* m_callback;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 7)
+
+
+BOOST_CLASS_VERSION(tools::wallet2, 8)
+BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 3)
+BOOST_CLASS_VERSION(tools::wallet_rpc::wallet_transfer_info, 2)
+
 
 namespace boost
 {
@@ -216,6 +236,12 @@ namespace boost
       a & x.m_change;
       a & x.m_sent_time;
       a & x.m_tx;
+      if (ver < 2)
+        return;
+      a & x.m_recipient;
+      if (ver < 3)
+        return;
+      a & x.m_recipient_alias;
     }
 
     template <class Archive>
@@ -225,6 +251,31 @@ namespace boost
       a & x.m_amount;
       a & x.m_block_height;
       a & x.m_unlock_time;
+    }
+    
+    template <class Archive>
+    inline void serialize(Archive& a, tools::wallet_rpc::wallet_transfer_info_details& x, const boost::serialization::version_type ver)
+    {
+      a & x.rcv;
+      a & x.spn;
+    }
+
+    template <class Archive>
+    inline void serialize(Archive& a, tools::wallet_rpc::wallet_transfer_info& x, const boost::serialization::version_type ver)
+    {      
+      a & x.amount;
+      a & x.timestamp;
+      a & x.tx_hash;
+      a & x.height;
+      a & x.tx_blob_size;
+      a & x.payment_id;
+      a & x.recipient; 
+      a & x.is_income;
+      a & x.td;
+      a & x.tx;
+      if (ver < 2)
+        return;
+      a & x.recipient_alias;
     }
 
   }
@@ -439,8 +490,15 @@ namespace tools
     CHECK_AND_THROW_WALLET_EX(!r, error::no_connection_to_daemon, "sendrawtransaction");
     CHECK_AND_THROW_WALLET_EX(daemon_send_resp.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "sendrawtransaction");
     CHECK_AND_THROW_WALLET_EX(daemon_send_resp.status != CORE_RPC_STATUS_OK, error::tx_rejected, tx, daemon_send_resp.status);
-
-    add_unconfirmed_tx(tx, change_dts.amount);
+    
+    std::string recipient;
+    for (const auto& d : dsts)
+    {
+      if (recipient.size())
+        recipient += ", ";
+      recipient += get_account_address_as_str(d.addr);
+    }
+    add_unconfirmed_tx(tx, change_dts.amount, recipient);
 
     LOG_PRINT_L2("transaction " << get_transaction_hash(tx) << " generated ok and sent to daemon, key_images: [" << key_images << "]");
 
