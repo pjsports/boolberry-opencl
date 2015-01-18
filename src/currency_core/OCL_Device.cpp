@@ -83,7 +83,7 @@ OCL_Device::OCL_Device(unsigned int iPlatformNum, unsigned int iDeviceNum, unsig
 	LOG_PRINT_L2("[OCL " << m_platform_num << "/" << m_device_num << "] allocate memory");
 	inputBuffer = DeviceMalloc(0, 256);
 	outputBuffer = DeviceMalloc(1, OCL_DEVICE_OUTPUT_SIZE * sizeof(cl_ulong));
-	scratchpadBuffer = DeviceMalloc(2, 64*1024*1024);
+	scratchpadBuffer = DeviceMalloc(2, 256*1024*1024);
 	if (m_type == 1)
 		stateBuffer = DeviceMalloc(3, iWorkSize * 8 * 25);
 	work_size = iWorkSize;
