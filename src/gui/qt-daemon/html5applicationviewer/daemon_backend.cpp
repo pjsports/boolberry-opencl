@@ -5,6 +5,7 @@
 
 #include "daemon_backend.h"
 #include "currency_core/alias_helper.h"
+#include "crypto/mnemonic-encoding.h"
 
 
 daemon_backend::daemon_backend():m_pview(&m_view_stub),
@@ -13,10 +14,9 @@ daemon_backend::daemon_backend():m_pview(&m_view_stub),
                                  m_cprotocol(m_ccore, &m_p2psrv),
                                  m_p2psrv(m_cprotocol),
                                  m_rpc_server(m_ccore, m_p2psrv),
-                                 m_rpc_proxy(m_rpc_server),
+                                 m_rpc_proxy(new tools::core_fast_rpc_proxy(m_rpc_server)),
                                  m_last_daemon_height(0),
                                  m_last_wallet_synch_height(0)
-
 {
   m_wallet.reset(new tools::wallet2());
   m_wallet->callback(this);
@@ -305,8 +305,9 @@ bool daemon_backend::update_state_info()
 {
   view::daemon_status_info dsi = AUTO_VAL_INIT(dsi);
   dsi.difficulty = "---";
+  currency::COMMAND_RPC_GET_INFO::request req = AUTO_VAL_INIT(req);
   currency::COMMAND_RPC_GET_INFO::response inf = AUTO_VAL_INIT(inf);
-  if(!m_rpc_proxy.get_info(inf))
+  if (!m_rpc_proxy->call_COMMAND_RPC_GET_INFO(req, inf))
   {
     dsi.text_state = "get_info failed";
     m_pview->update_daemon_status(dsi);
@@ -477,7 +478,8 @@ bool daemon_backend::load_recent_transfers()
   return m_pview->set_recent_transfers(tr_hist);
 }
 
-bool daemon_backend::generate_wallet(const std::string& path, const std::string& password)
+bool daemon_backend::generate_wallet(const std::string& path, 
+	const std::string& password, std::string& restore_seed)
 {
   CRITICAL_REGION_LOCAL(m_wallet_lock);
   try
@@ -489,7 +491,7 @@ bool daemon_backend::generate_wallet(const std::string& path, const std::string&
       m_wallet->callback(this);
     }
 
-    m_wallet->generate(path, password);
+	restore_seed = crypto::mnemonic_encoding::binary2text(m_wallet->generate(path, password));
   }
   catch (const std::exception& e)
   {
@@ -505,6 +507,38 @@ bool daemon_backend::generate_wallet(const std::string& path, const std::string&
   m_pview->show_wallet();
   return true;
 
+}
+
+bool daemon_backend::restore_wallet(const std::string& path, 
+	const std::string& restore_text, const std::string& password)
+{
+	CRITICAL_REGION_LOCAL(m_wallet_lock);
+	try
+	{
+		if (m_wallet->get_wallet_path().size())
+		{
+			m_wallet->store();
+			m_wallet.reset(new tools::wallet2());
+			m_wallet->callback(this);
+		}
+
+		std::vector<unsigned char> restore_seed = 
+			crypto::mnemonic_encoding::text2binary(restore_text);
+		m_wallet->restore(path, restore_seed, password);
+	}
+	catch (const std::exception& e)
+	{
+		m_pview->show_msg_box(std::string("Failed to generate wallet: ") + e.what());
+		m_wallet.reset(new tools::wallet2());
+		m_wallet->callback(this);
+		return false;
+	}
+
+	m_wallet->init(std::string("127.0.0.1:") + std::to_string(m_rpc_server.get_binded_port()));
+	update_wallet_info();
+	m_last_wallet_synch_height = 0;
+	m_pview->show_wallet();
+	return true;
 }
 
 bool daemon_backend::close_wallet()
@@ -532,7 +566,7 @@ bool daemon_backend::close_wallet()
 bool daemon_backend::get_aliases(view::alias_set& al_set)
 {
   currency::COMMAND_RPC_GET_ALL_ALIASES::response aliases = AUTO_VAL_INIT(aliases);
-  if (m_rpc_proxy.get_aliases(aliases) && aliases.status == CORE_RPC_STATUS_OK)
+  if (m_rpc_proxy->call_COMMAND_RPC_GET_ALL_ALIASES(aliases) && aliases.status == CORE_RPC_STATUS_OK)
   {
     al_set.aliases = aliases.aliases;
     return true;
@@ -560,7 +594,7 @@ bool daemon_backend::transfer(const view::transfer_params& tp, currency::transac
   for(auto& d: tp.destinations)
   {
     dsts.push_back(currency::tx_destination_entry());
-    if (!tools::get_transfer_address(d.address, dsts.back().addr, m_rpc_proxy))
+    if (!tools::get_transfer_address(d.address, dsts.back().addr, m_rpc_proxy.get()))
     {
       m_pview->show_msg_box("Failed to send transaction: invalid address");
       return false;
@@ -617,12 +651,13 @@ bool daemon_backend::transfer(const view::transfer_params& tp, currency::transac
 
 bool daemon_backend::update_wallet_info()
 {
-  CRITICAL_REGION_LOCAL(m_wallet_lock);
+	CRITICAL_REGION_LOCAL(m_wallet_lock);
   view::wallet_info wi = AUTO_VAL_INIT(wi);
   wi.address = m_wallet->get_account().get_public_address_str();
   wi.tracking_hey = string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
   wi.balance = m_wallet->balance();
   wi.unlocked_balance = m_wallet->unlocked_balance();
+  wi.unconfirmed_balance = m_wallet->unconfirmed_balance();
   wi.path = m_wallet->get_wallet_path();
   m_pview->update_wallet_info(wi);
   return true;
@@ -639,6 +674,7 @@ void daemon_backend::on_transfer2(const tools::wallet_rpc::wallet_transfer_info&
   tei.ti = wti;
   tei.balance = m_wallet->balance();
   tei.unlocked_balance = m_wallet->unlocked_balance();
+  tei.unconfirmed_balance = m_wallet->unconfirmed_balance();
   m_pview->money_transfer(tei);
 }
 

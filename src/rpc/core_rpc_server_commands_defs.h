@@ -138,6 +138,28 @@ namespace currency
     };
   };
   //-----------------------------------------------
+  struct COMMAND_RPC_CHECK_KEYIMAGES
+  {
+    struct request
+    {
+      std::list<crypto::key_image> images;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(images)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::list<bool> images_stat;  //true - unspent, false - spent
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(images_stat)
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+  //-----------------------------------------------
   struct COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES
   {
     struct request
@@ -303,6 +325,8 @@ namespace currency
       uint64_t daemon_network_state;
       uint64_t synchronization_start_height;
       uint64_t max_net_seen_height;
+      uint64_t transactions_cnt_per_day;
+      uint64_t transactions_volume_per_day;
       nodetool::maintainers_info_external mi;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -324,6 +348,8 @@ namespace currency
         KV_SERIALIZE(daemon_network_state)
         KV_SERIALIZE(synchronization_start_height)
         KV_SERIALIZE(max_net_seen_height)
+        KV_SERIALIZE(transactions_cnt_per_day)
+        KV_SERIALIZE(transactions_volume_per_day)
         KV_SERIALIZE(mi)
       END_KV_SERIALIZE_MAP()
     };
@@ -598,6 +624,26 @@ namespace currency
       END_KV_SERIALIZE_MAP()
     };
   };
+
+  struct COMMAND_RPC_RESET_TX_POOL
+  {
+
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response
+    {
+      std::string status;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+      END_KV_SERIALIZE_MAP()
+    };
+  };
+
 
 }
 

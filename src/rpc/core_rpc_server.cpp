@@ -23,7 +23,6 @@ namespace currency
     const command_line::arg_descriptor<std::string> arg_rpc_bind_ip   = {"rpc-bind-ip", "", "127.0.0.1"};
     const command_line::arg_descriptor<std::string> arg_rpc_bind_port = {"rpc-bind-port", "", std::to_string(RPC_DEFAULT_PORT)};
   }
-
   //-----------------------------------------------------------------------------------
   void core_rpc_server::init_options(boost::program_options::options_description& desc)
   {
@@ -97,6 +96,7 @@ namespace currency
     res.current_network_hashrate_350 = m_core.get_blockchain_storage().get_current_hashrate(350);
     res.scratchpad_size = m_core.get_blockchain_storage().get_scratchpad_size();
     res.alias_count = m_core.get_blockchain_storage().get_aliases_count();
+    m_core.get_blockchain_storage().get_transactions_daily_stat(res.transactions_cnt_per_day, res.transactions_volume_per_day);
 
     if (!res.outgoing_connections_count)
       res.daemon_network_state = COMMAND_RPC_GET_INFO::daemon_network_state_connecting;
@@ -206,6 +206,13 @@ namespace currency
     {
       res.txs.push_back(t_serializable_object_to_blob(tx));
     }
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_check_keyimages(const COMMAND_RPC_CHECK_KEYIMAGES::request& req, COMMAND_RPC_CHECK_KEYIMAGES::response& res, connection_context& cntx)
+  {
+    m_core.get_blockchain_storage().check_keyimages(req.images, res.images_stat);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -947,5 +954,10 @@ namespace currency
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-
+  bool core_rpc_server::on_reset_transaction_pool(const COMMAND_RPC_RESET_TX_POOL::request& req, COMMAND_RPC_RESET_TX_POOL::response& res, connection_context& cntx)
+  {
+    m_core.get_tx_pool().purge_transactions();
+    res.status = CORE_RPC_STATUS_OK;
+    return true;
+  }
 }

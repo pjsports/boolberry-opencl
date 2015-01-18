@@ -19,7 +19,6 @@ using namespace epee;
 #include "profile_tools.h"
 #include "crypto/crypto.h"
 #include "serialization/binary_utils.h"
-#include "currency_core/alias_helper.h"
 using namespace currency;
 
 namespace tools
@@ -45,7 +44,18 @@ void fill_transfer_details(const currency::transaction& tx, const tools::money_t
 void wallet2::init(const std::string& daemon_address)
 {
   m_upper_transaction_size_limit = 0;
-  m_daemon_address = daemon_address;
+  m_core_proxy->set_connection_addr(daemon_address);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::set_core_proxy(std::shared_ptr<i_core_proxy>& proxy)
+{
+  m_core_proxy = proxy;
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+std::shared_ptr<i_core_proxy> wallet2::get_core_proxy()
+{
+  return m_core_proxy;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const currency::transaction& tx, uint64_t height, const currency::block& b)
@@ -70,7 +80,7 @@ void wallet2::process_new_transaction(const currency::transaction& tx, uint64_t 
     currency::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::request req = AUTO_VAL_INIT(req);
     currency::COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES::response res = AUTO_VAL_INIT(res);
     req.txid = get_transaction_hash(tx);
-    bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_o_indexes.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
+    bool r = m_core_proxy->call_COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES(req, res);
     CHECK_AND_THROW_WALLET_EX(!r, error::no_connection_to_daemon, "get_o_indexes.bin");
     CHECK_AND_THROW_WALLET_EX(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_o_indexes.bin");
     CHECK_AND_THROW_WALLET_EX(res.status != CORE_RPC_STATUS_OK, error::get_out_indices_error, res.status);
@@ -281,7 +291,7 @@ void wallet2::pull_blocks(size_t& blocks_added)
   currency::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   currency::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
   get_short_chain_history(req.block_ids);
-  bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/getblocks.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
+  bool r = m_core_proxy->call_COMMAND_RPC_GET_BLOCKS_FAST(req, res);
   CHECK_AND_THROW_WALLET_EX(!r, error::no_connection_to_daemon, "getblocks.bin");
   CHECK_AND_THROW_WALLET_EX(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getblocks.bin");
   CHECK_AND_THROW_WALLET_EX(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
@@ -338,7 +348,7 @@ void wallet2::update_current_tx_limit()
 {
   currency::COMMAND_RPC_GET_INFO::request req = AUTO_VAL_INIT(req);
   currency::COMMAND_RPC_GET_INFO::response res = AUTO_VAL_INIT(res);
-  bool r = net_utils::invoke_http_json_remote_command2(m_daemon_address + "/getinfo", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
+  bool r = m_core_proxy->call_COMMAND_RPC_GET_INFO(req, res);
   CHECK_AND_THROW_WALLET_EX(!r, error::no_connection_to_daemon, "getinfo");
   CHECK_AND_THROW_WALLET_EX(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "getinfo");
   CHECK_AND_THROW_WALLET_EX(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
@@ -351,13 +361,13 @@ void wallet2::scan_tx_pool()
   //get transaction pool content 
   currency::COMMAND_RPC_GET_TX_POOL::request req = AUTO_VAL_INIT(req);
   currency::COMMAND_RPC_GET_TX_POOL::response res = AUTO_VAL_INIT(res);
-  bool r = net_utils::invoke_http_bin_remote_command2(m_daemon_address + "/get_tx_pool.bin", req, res, m_http_client, WALLET_RCP_CONNECTION_TIMEOUT);
+  bool r = m_core_proxy->call_COMMAND_RPC_GET_TX_POOL(req, res);
   CHECK_AND_THROW_WALLET_EX(!r, error::no_connection_to_daemon, "get_tx_pool");
   CHECK_AND_THROW_WALLET_EX(res.status == CORE_RPC_STATUS_BUSY, error::daemon_busy, "get_tx_pool");
   CHECK_AND_THROW_WALLET_EX(res.status != CORE_RPC_STATUS_OK, error::get_blocks_error, res.status);
   
   std::unordered_map<crypto::hash, currency::transaction> unconfirmed_in_transfers_local(std::move(m_unconfirmed_in_transfers));
-
+  m_unconfirmed_balance = 0;
   for (const auto &tx_blob : res.txs)
   {
     currency::transaction tx;
@@ -400,6 +410,7 @@ void wallet2::scan_tx_pool()
       wti.is_income = true;
       m_unconfirmed_in_transfers[tx_hash] = tx;
       prepare_wti(wti, 0, 0, tx, tx_money_got_in_outs, money_transfer2_details());
+	  m_unconfirmed_balance += wti.amount;
       if (m_callback)
         m_callback->on_transfer2(wti);
     }
@@ -561,7 +572,7 @@ void wallet2::load_keys(const std::string& keys_file_name, const std::string& pa
   CHECK_AND_THROW_WALLET_EX(!r, error::invalid_password);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::generate(const std::string& wallet_, const std::string& password)
+std::vector<unsigned char> wallet2::generate(const std::string& wallet_, const std::string& password)
 {
   clear();
   prepare_file_names(wallet_);
@@ -570,7 +581,7 @@ void wallet2::generate(const std::string& wallet_, const std::string& password)
   CHECK_AND_THROW_WALLET_EX(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
   CHECK_AND_THROW_WALLET_EX(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
 
-  m_account.generate();
+  std::vector<unsigned char> restore_seed = m_account.generate();
   m_account_public_address = m_account.get_keys().m_account_address;
 
   bool r = store_keys(m_keys_file, password);
@@ -580,7 +591,32 @@ void wallet2::generate(const std::string& wallet_, const std::string& password)
   if(!r) LOG_PRINT_RED_L0("String with address text not saved");
 
   store();
+
+  return restore_seed;
 }
+
+//----------------------------------------------------------------------------------------------------
+void wallet2::restore(const std::string& wallet_, const std::vector<unsigned char>& restore_seed, const std::string& password)
+{
+	clear();
+	prepare_file_names(wallet_);
+
+	boost::system::error_code ignored_ec;
+	CHECK_AND_THROW_WALLET_EX(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
+	CHECK_AND_THROW_WALLET_EX(boost::filesystem::exists(m_keys_file, ignored_ec), error::file_exists, m_keys_file);
+
+	m_account.restore(restore_seed);
+	m_account_public_address = m_account.get_keys().m_account_address;
+
+	bool r = store_keys(m_keys_file, password);
+	CHECK_AND_THROW_WALLET_EX(!r, error::file_save_error, m_keys_file);
+
+	r = file_io_utils::save_string_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str());
+	if (!r) LOG_PRINT_RED_L0("String with address text not saved");
+
+	store();
+}
+
 //----------------------------------------------------------------------------------------------------
 bool wallet2::prepare_file_names(const std::string& file_path)
 {
@@ -599,14 +635,7 @@ bool wallet2::prepare_file_names(const std::string& file_path)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::check_connection()
 {
-  if(m_http_client.is_connected())
-    return true;
-
-  net_utils::http::url_content u;
-  net_utils::parse_url(m_daemon_address, u);
-  if(!u.port)
-    u.port = 8081;  
-  return m_http_client.connect(u.host, std::to_string(u.port), WALLET_RCP_CONNECTION_TIMEOUT);
+  return m_core_proxy->check_connection();
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::load(const std::string& wallet_, const std::string& password)
@@ -661,6 +690,13 @@ uint64_t wallet2::unlocked_balance()
   return amount;
 }
 //----------------------------------------------------------------------------------------------------
+int64_t wallet2::unconfirmed_balance()
+{
+	if (m_unconfirmed_in_transfers.size() > 0)
+		return m_unconfirmed_balance;
+	return 0;
+}
+//----------------------------------------------------------------------------------------------------
 uint64_t wallet2::balance()
 {
   uint64_t amount = 0;
@@ -701,7 +737,7 @@ void wallet2::get_recent_transfers_history(std::vector<wallet_rpc::wallet_transf
 //----------------------------------------------------------------------------------------------------
 bool wallet2::get_transfer_address(const std::string& adr_str, currency::account_public_address& addr)
 {
-  return tools::get_transfer_address(adr_str, addr, m_http_client, m_daemon_address);
+  return m_core_proxy->get_transfer_address(adr_str, addr);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::wallet_transfer_info_from_unconfirmed_transfer_details(const unconfirmed_transfer_details& u, wallet_rpc::wallet_transfer_info& wti)
@@ -883,7 +919,7 @@ std::string wallet2::get_alias_for_address(const std::string& addr)
 {
   currency::COMMAND_RPC_GET_ALIASES_BY_ADDRESS::request req = addr;
   currency::COMMAND_RPC_GET_ALIASES_BY_ADDRESS::response res = AUTO_VAL_INIT(res);
-  if (!epee::net_utils::invoke_http_json_rpc("/json_rpc", "get_alias_by_address", req, res, m_http_client))
+  if (!m_core_proxy->call_COMMAND_RPC_GET_ALIASES_BY_ADDRESS(req, res))
   {
     LOG_PRINT_L0("Failed to COMMAND_RPC_GET_ALIASES_BY_ADDRESS");
     return "";

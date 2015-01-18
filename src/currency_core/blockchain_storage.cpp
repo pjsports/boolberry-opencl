@@ -934,7 +934,7 @@ bool blockchain_storage::handle_alternative_block(const block& b, const crypto::
 {
   if(m_checkpoints.is_height_passed_zone(get_block_height(b), get_current_blockchain_height()-1))
   {
-    LOG_PRINT_RED_L0("Block with id: " << id << ENDL << " for alternative chain, is under checkpoint zone, declined");
+    LOG_PRINT_RED_L0("Block with id: " << id << "[" << get_block_height(b)  << "]" << ENDL << " for alternative chain, is under checkpoint zone, declined");
     bvc.m_verifivation_failed = true;
     return false;
 
@@ -1185,6 +1185,37 @@ bool blockchain_storage::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request&
   BOOST_FOREACH(const auto& tx, txs)
     rsp.txs.push_back(t_serializable_object_to_blob(tx));
 
+  return true;
+}
+//------------------------------------------------------------------
+bool blockchain_storage::get_transactions_daily_stat(uint64_t& daily_cnt, uint64_t& daily_volume)
+{
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  daily_cnt = daily_volume = 0;
+  for(size_t i =  (m_blocks.size() > CURRENCY_BLOCK_PER_DAY ? m_blocks.size() - CURRENCY_BLOCK_PER_DAY:0 ); i!=m_blocks.size(); i++)
+  {
+    for(auto& h: m_blocks[i].bl.tx_hashes)
+    {
+      ++daily_cnt;
+      auto tx_it = m_transactions.find(h);
+      CHECK_AND_ASSERT_MES(tx_it != m_transactions.end(), false, "Wrong transaction hash "<<  h <<" in block on height " << i );
+      uint64_t am = 0;
+      bool r = get_inputs_money_amount(tx_it->second.tx, am);
+      CHECK_AND_ASSERT_MES(r, false, "failed to get_inputs_money_amount");
+      daily_volume += am;
+    }
+  }
+  return true;
+}
+//------------------------------------------------------------------
+bool blockchain_storage::check_keyimages(const std::list<crypto::key_image>& images, std::list<bool>& images_stat)
+{
+  //true - unspent, false - spent
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  for (auto& ki : images)
+  {
+    images_stat.push_back(m_spent_keys.count(ki)?false:true);
+  }
   return true;
 }
 //------------------------------------------------------------------
